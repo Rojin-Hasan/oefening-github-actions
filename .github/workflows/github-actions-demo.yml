@@ -30,6 +30,34 @@ jobs:
         run: ./gradlew build
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
+  Tag-and-Release:
+    runs-on: ubuntu-latest
+    needs: Build-and-Test
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+
+      - name: Generate version
+        id: get_version
+        run: |
+          chmod +x ./build_version.sh
+          VERSION=$(./build_version.sh)
+
+      - name: Create Git tag
+        run: |
+          git tag $VERSION
+          git push origin $VERSION
+        env:
+          VERSION: ${{ env.VERSION }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.VERSION }}
+          name: Release ${{ env.VERSION }}
+          body: "Automated release of version ${{ env.VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   Post-to-Slack:
     name: Post to Slack on failure
