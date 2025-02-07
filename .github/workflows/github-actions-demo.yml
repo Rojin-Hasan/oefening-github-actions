@@ -42,6 +42,8 @@ jobs:
         run: |
           chmod +x ./build_version.sh
           VERSION=$(./build_version.sh)
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "::set-output name=version::$VERSION"
 
       - name: Create Git tag
         run: |
