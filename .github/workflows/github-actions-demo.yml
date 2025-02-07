@@ -1,26 +1,15 @@
 name: GitHub Actions Demo
 run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+
 on:
-  push: #Zorg dat je de workflow kan triggeren door te pushen of gewoon door op een knop te duwen.
+  push:
   workflow_dispatch:
+
 jobs:
-  Explore-GitHub-Actions:
+  Build-and-Test:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository code
-        uses: actions/checkout@v4
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
-  Build-and-Test:
-    runs-on: ubuntu-latest #runt op een ubuntu runner.
-    steps:
       - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
 
       - name: Check out repository code
         uses: actions/checkout@v4
@@ -42,6 +31,51 @@ jobs:
           ls ${{ github.workspace }}
 
       - name: Run Gradle tests
-        run: ./gradlew test
+        run: ./gradlew build
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
+
+  Lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Install Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Install Gradle
+        uses: gradle/gradle-build-action@v2
+      - name: Run Gradle lint
+        run: ./gradlew lint
+
+  Post-to-Slack:
+    name: Post to Slack on failure
+    runs-on: ubuntu-latest
+    needs: [Build-and-Test, Lint]
+    if: failure()
+    steps:
+      - name: Post to Slack
+        uses: slackapi/slack-github-action@v1.25.0
+        with:
+          channel-id: "bot-test"
+          slack-message: "GitHub build result: ${{ job.status }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+          payload: |
+            {
+              "text": "Build failed!",
+              "attachments": [
+                {
+                  "color": "FF0000",
+                  "fields": [
+                    {
+                      "title": "FAILURE",
+                      "short": true,
+                      "value": "${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+                    }
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
